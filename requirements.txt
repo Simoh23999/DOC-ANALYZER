@@ -1,0 +1,8 @@
+Flask
+requests
+PyMuPDF
+pillow
+pytesseract
+python-docx
+mammoth
+PyPDF2
