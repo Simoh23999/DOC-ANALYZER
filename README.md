@@ -2,8 +2,11 @@
 
 1.  Go to : https://github.com/UB-Mannheim/tesseract/wiki
 2.  click la version 64-bit : `tesseract-ocr-w64-setup-5.5.0.20241111.exe`
-3.  Exécutez l'installateur avec les options par défaut
-4.  **Important** : Notez le chemin d'installation (`C:\Program Files\Tesseract-OCR`)
+   <img width="631" alt="image" src="https://github.com/user-attachments/assets/d047d1fd-878b-492e-a672-cfbba35a4814" />
+
+
+4.  Exécutez l'installateur avec les options par défaut
+5.  **Important** : Notez le chemin d'installation (`C:\Program Files\Tesseract-OCR`)
 
 ### 3\. Configuration de Tesseract
 
