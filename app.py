@@ -143,6 +143,7 @@ def login():
         
         # Validation des données
         if not email or not password:
+            print("NO email")
             return render_template('connexion.html')
 
         conn = get_db()
@@ -151,20 +152,28 @@ def login():
         cursor.execute('SELECT id, password FROM users WHERE email = ?', (email,))
         user = cursor.fetchone()
         conn.close()
-        print("User ID:", session['user_id'])
+        
 
         if user and (user['password'] == password):
+            print("User authenticated successfully")
+            print("User ID:", user['id'])
+            print("User Email:", email)
+            print("DB Password:", user['password'])
+            print("Input Password:", password)
             session['user_id'] = user['id']
-            return render_template('upload.html', message='Connexion réussie')
         else:
+            print("Email or password incorrect")
             return render_template('connexion.html', error='Email ou mot de passe incorrect')
+        return render_template('upload.html', message='Connexion réussie')
 
 
         # return render_template('index.html', message='Connexion réussie', user_email=user_email)
         
     except sqlite3.Error as e:
+        print("Database error:", str(e))
         return render_template('connexion.html', error=f'Erreur de base de données: {str(e)}')
     except Exception as e:
+        print("Server error:", str(e))
         return render_template('connexion.html', error=f'Erreur serveur: {str(e)}')
 
 @app.route('/logout')
