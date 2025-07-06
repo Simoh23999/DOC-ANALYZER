@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire de Documents</title>
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-file-alt"></i> Documents</h3>
+                <!-- <button class="hamburger-menu" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button> -->
+                <div class="header-actions">
+                    <a href="/logout" class="logout-btn" style="text-decoration: none;" title="Se déconnecter">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                    <button class="hamburger-menu" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="upload-section">
+                <input type="file" id="fileInput" accept=".pdf,.doc,.docx" style="display: none;">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-upload"></i> Télécharger un document
+                </button>
+            </div>
+            
+            <div class="documents-list" id="documentsList">
+                <!-- Les documents seront ajoutés ici dynamiquement -->
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="main-header">
+                <h1>TELECHARGER VOS DOCUMENTS</h1>
+                <p>TELECHARGER VOTRE PROPRE FICHIER</p>
+            </div>
+
+            <!-- Upload Area (shown when no document is selected) -->
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-zone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Glissez-déposez vos fichiers ici ou</p>
+                    <button class="select-file-btn" onclick="document.getElementById('fileInput').click()">
+                        SÉLECTIONNER UN FICHIER
+                    </button>
+                    <small>Formats supportés: PDF, DOC, DOCX</small>
+                </div>
+            </div>
+
+            <!-- Document Editor (shown when a document is selected) -->
+            <div class="editor-container" id="editorContainer" style="display: none;">
+                <div class="editor-header">
+                    <h2 id="currentDocTitle">Document</h2>
+                    <div class="editor-actions">
+                        <button class="btn btn-delete" onclick="deleteDocument()">
+                            <i class="fa-solid fa-trash"></i> Supprimer le Document
+                        </button>
+                        <button class="btn btn-ai" onclick="openAIInterface()">
+                            <i class="fas fa-robot"></i> Poser une question à l'IA
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="editor-content">
+                    <!-- Le contenu du document sera affiché ici -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Chargement du document...</p>
+    </div>
+
+    <script>
+        // Variables globales
+        let currentDocumentId = null;
+        let documents = [];
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            setupEventListeners();
+            loadDocuments();
+        }
+
+        function setupEventListeners() {
+            // Upload de fichier
+            const fileInput = document.getElementById('fileInput');
+            fileInput.addEventListener('change', handleFileUpload);
+
+            // Drag & Drop
+            const uploadZone = document.querySelector('.upload-zone');
+            if (uploadZone) {
+                uploadZone.addEventListener('dragover', handleDragOver);
+                uploadZone.addEventListener('drop', handleDrop);
+                uploadZone.addEventListener('dragleave', handleDragLeave);
+            }
+
+            // Auto-save du document toutes les 30 secondes
+            setInterval(() => {
+                if (currentDocumentId) {
+                    saveDocument(false); // Save silencieusement
+                }
+            }, 30000);
+        }
+
+        // Gestion du drag & drop
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#3498db';
+            e.currentTarget.style.backgroundColor = '#f8f9fa';
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#bdc3c7';
+            e.currentTarget.style.backgroundColor = '#fafafa';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '#bdc3c7';
+            e.currentTarget.style.backgroundColor = '#fafafa';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFile(files[0]);
+            }
+        }
+
+        // Gestion de l'upload de fichier
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        }
+
+        function uploadFile(file) {
+            // Vérifications préliminaires
+            if (!file) {
+                console.log('Aucun fichier sélectionné');
+                return;
+            }
+
+            // Vérifier le type de fichier
+            const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            const allowedExtensions = /\.(pdf|doc|docx)$/i;
+            
+            if (!allowedTypes.includes(file.type) && !allowedExtensions.test(file.name)) {
+                console.log('Type de fichier non supporté. Utilisez PDF, DOC ou DOCX.');
+                return;
+            }
+
+            // Vérifier la taille du fichier (16MB max)
+            if (file.size > 16 * 1024 * 1024) {
+                console.log('Le fichier est trop volumineux. Taille maximum: 16MB.');
+                return;
+            }
+
+            // Vérifier que le fichier n'est pas vide
+            if (file.size === 0) {
+                console.log('Le fichier est vide.');
+                return;
+            }
+
+            showLoading(true);
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                
+                if (data.success && data.document) {
+                    console.log('Document téléchargé avec succès!');
+                    loadDocuments();
+                    
+                    // Ouvrir automatiquement le document uploadé après un court délai
+                    setTimeout(() => {
+                        if (data.document.id) {
+                            openDocument(data.document.id);
+                        }
+                    }, 500);
+                } else {
+                    console.log(data.error || 'Erreur lors du téléchargement');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Erreur upload:', error);
+                console.log('Erreur lors du téléchargement du fichier');
+            });
+
+            // Reset file input
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+        }
+
+        // Charger la liste des documents
+        function loadDocuments() {
+            fetch('/documents')
+            .then(response => response.json())
+            .then(data => {
+                documents = data;
+                updateDocumentsList();
+                return data;
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des documents:', error);
+                console.log('Erreur lors du chargement des documents');
+                throw error;
+            });
+        }
+
+        // Mettre à jour la liste des documents dans la sidebar
+        function updateDocumentsList() {
+            const documentsList = document.getElementById('documentsList');
+            documentsList.innerHTML = '';
+            documentsList.offsetHeight;
+
+            if (documents.length === 0) {
+                documentsList.innerHTML = '<p style="text-align: center; color: #bdc3c7; padding: 20px;">Aucun document</p>';
+                return;
+            }
+
+            documents.forEach(doc => {
+                const docElement = createDocumentTab(doc);
+                documentsList.appendChild(docElement);
+            });
+            documentsList.offsetHeight;
+        }
+
+        // Créer un onglet de document
+        function createDocumentTab(doc) {
+            const tabElement = document.createElement('div');
+            tabElement.className = 'document-tab';
+            tabElement.setAttribute('data-doc-id', doc.id);
+            
+            // Icône selon le type de fichier
+            let icon = 'fa-file';
+            if (doc.file_type === 'pdf') icon = 'fa-file-pdf';
+            else if (doc.file_type === 'docx' || doc.file_type === 'doc') icon = 'fa-file-word';
+
+            tabElement.innerHTML = `
+                <div class="doc-name">
+                    <i class="fas ${icon}"></i> 
+                    ${doc.filename}
+                </div>
+                <div class="doc-type">${doc.file_type.toUpperCase()}</div>
+            `;
+
+            tabElement.addEventListener('click', () => openDocument(doc.id));
+
+            return tabElement;
+        }
+
+        // Ouvrir un document dans l'éditeur
+        function openDocument(docId) {
+            if (!docId) {
+                console.log('ID de document invalide');
+                return;
+            }
+
+            showLoading(true);
+            
+            fetch(`/document/${docId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                
+                if (data.error) {
+                    console.log(data.error);
+                    return;
+                }
+
+                // Vérifier que les données essentielles sont présentes
+                if (!data.id || !data.filename) {
+                    console.log('Données de document incomplètes');
+                    return;
+                }
+
+                currentDocumentId = docId;
+                
+                // Mettre à jour l'interface
+                const uploadArea = document.getElementById('uploadArea');
+                const editorContainer = document.getElementById('editorContainer');
+                
+                if (uploadArea) uploadArea.style.display = 'none';
+                if (editorContainer) editorContainer.style.display = 'flex';
+                
+                // Remplir l'éditeur avec gestion des valeurs nulles
+                const titleElement = document.getElementById('currentDocTitle');
+                // const editorElement = document.getElementById('documentEditor');
+                
+                if (titleElement) {
+                    titleElement.textContent = data.filename || 'Document sans nom';
+                }
+                
+                // if (editorElement) {
+                //     editorElement.value = data.content || '';
+                // }
+                
+                // Mettre à jour les onglets actifs
+                updateActiveTab(docId);
+                
+                console.log('Document ouvert avec succès');
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Erreur lors de l\'ouverture du document:', error);
+                console.log('Erreur lors de l\'ouverture du document');
+                
+                // En cas d'erreur, revenir à l'écran d'accueil
+                const uploadArea = document.getElementById('uploadArea');
+                const editorContainer = document.getElementById('editorContainer');
+                
+                if (uploadArea) uploadArea.style.display = 'flex';
+                if (editorContainer) editorContainer.style.display = 'none';
+                
+                currentDocumentId = null;
+            });
+        }
+
+        // Mettre à jour l'onglet actif
+        function updateActiveTab(docId) {
+            // Retirer la classe active de tous les onglets
+            document.querySelectorAll('.document-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Ajouter la classe active à l'onglet sélectionné
+            const activeTab = document.querySelector(`[data-doc-id="${docId}"]`);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
+        }
+
+        // Sauvegarder le document
+        function saveDocument(showNotification = true) {
+            if (!currentDocumentId) {
+                if (showNotification) console.log('Aucun document ouvert');
+                return;
+            }
+
+            const editorElement = document.getElementById('documentEditor');
+            // if (!editorElement) {
+            //     if (showNotification) console.log('Éditeur non trouvé');
+            //     return;
+            // }
+
+            // const content = editorElement.value || '';
+            
+            fetch(`/document/${currentDocumentId}/save`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: content })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    if (showNotification) console.log('Document sauvegardé avec succès');
+                } else {
+                    if (showNotification) console.log(data.error || 'Erreur lors de la sauvegarde');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur sauvegarde:', error);
+                if (showNotification) console.log('Erreur lors de la sauvegarde');
+            });
+        }
+
+        // Ouvrir l'interface IA
+        function openAIInterface() {
+            if (!currentDocumentId) {
+                console.log('Aucun document ouvert');
+                return;
+            }
+            window.location.href = `/ai-chat?doc=${currentDocumentId}`;
+
+            // Sauvegarder d'abord le document avant d'aller vers l'IA
+            // const content = document.getElementById('documentEditor').value;
+            
+            // fetch(`/document/${currentDocumentId}/save`, {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json',
+            //     },
+            //     body: JSON.stringify({ content: content })
+            // })
+            // .then(response => response.json())
+            // .then(data => {
+                // if (data.success) {
+                    // Maintenant rediriger vers l'interface IA
+                    // fetch(`/ai-interface/${currentDocumentId}`)
+                    // .then(response => response.json())
+                    // .then(aiData => {
+                    //     if (aiData.redirect_to_ai) {
+                            // Ici vous pouvez implémenter la redirection vers votre interface IA
+                            // Exemple: window.location.href = `/ai-chat?doc=${currentDocumentId}`;
+                            // window.location.href = `/ai-chat?doc=${currentDocumentId}`;
+                            // Ou ouvrir dans un nouvel onglet:
+                            // window.open(`/ai-chat?doc=${currentDocumentId}`, '_blank');
+                            
+                            // Pour le moment, afficher une alerte avec les informations
+                            // alert(`Redirection vers l'interface IA pour le document: ${aiData.document_filename}\nDocument ID: ${aiData.document_id}`);
+                            
+                            // Vous pouvez aussi stocker les données dans localStorage pour l'interface IA
+                    //         localStorage.setItem('aiDocumentData', JSON.stringify({
+                    //             id: aiData.document_id,
+                    //             filename: aiData.document_filename,
+                    //             content: aiData.document_content
+                    //         }));
+                            
+                    //         console.log('Redirection vers l\'interface IA...');
+                    //     }
+                    // })
+                    // .catch(error => {
+                    //     console.error('Erreur:', error);
+                    //     console.log('Erreur lors de l\'accès à l\'interface IA');
+                    // });
+                // }
+            // })
+            // .catch(error => {
+            //     console.error('Erreur:', error);
+            //     console.log('Erreur lors de la sauvegarde avant IA');
+            // });
+        }
+
+        function deleteDocument(documentId) {
+            // Utiliser le paramètre documentId ou currentDocumentId comme fallback
+            const docId = documentId || currentDocumentId;
+            
+            if (!docId) {
+                console.error('Aucun document sélectionné pour la suppression');
+                if (showNotification) console.log('Aucun document sélectionné');
+                return;
+            }
+            
+            // Demander confirmation avant suppression
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce document ?')) {
+                return;
+            }
+
+            showLoading(true);
+            fetch(`/document/${docId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    console.log('Document supprimé avec succès');
+                    
+                    
+                    // Si le document supprimé était le document actuel, réinitialiser l'interface
+                    if (docId === currentDocumentId) {
+                        currentDocumentId = null;
+                        // Réinitialiser l'interface ou rediriger vers la page d'accueil
+                        // window.location.href = '/';
+                                        // Masquer l'éditeur et afficher la zone d'upload
+                        const uploadArea = document.getElementById('uploadArea');
+                        const editorContainer = document.getElementById('editorContainer');
+                        
+                        if (uploadArea) uploadArea.style.display = 'flex';
+                        if (editorContainer) editorContainer.style.display = 'none';
+                    }
+                    // Mettre à jour la liste des documents   
+                    // loadDocuments();
+                    setTimeout(() => {
+                        forceInterfaceUpdate();
+                        showLoading(false);
+                    }, 100);                 
+                    
+                } else {
+                    if (showNotification) console.log(data.error || 'Erreur lors de la suppression');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Erreur suppression:', error);
+                if (showNotification) console.log('Erreur lors de la suppression');
+            });
+        }
+
+        function forceInterfaceUpdate() {
+            // Masquer temporairement la sidebar pour forcer le rafraîchissement
+            const sidebar = document.querySelector('.sidebar');
+            const originalDisplay = sidebar.style.display;
+            
+            sidebar.style.display = 'none';
+            
+            // Forcer un reflow
+            sidebar.offsetHeight;
+            
+            // Restaurer l'affichage
+            sidebar.style.display = originalDisplay;
+            
+            // Recharger les documents
+            loadDocuments();
+        }
+
+        // Gestion de la sidebar mobile
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('open');
+        }
+
+        // Fermer la sidebar si on clique en dehors (mobile)
+        document.addEventListener('click', function(e) {
+            const sidebar = document.querySelector('.sidebar');
+            const hamburger = document.querySelector('.hamburger-menu');
+            
+            if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
+                if (!sidebar.contains(e.target) && !hamburger.contains(e.target)) {
+                    sidebar.classList.remove('open');
+                }
+            }
+        });
+
+        // Gestion du redimensionnement de la fenêtre
+        window.addEventListener('resize', function() {
+            const sidebar = document.querySelector('.sidebar');
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('open');
+            }
+        });
+
+        // Utilitaires pour l'interface
+        function showLoading(show) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (show) {
+                loadingOverlay.classList.add('show');
+            } else {
+                loadingOverlay.classList.remove('show');
+            }
+        }
+
+        // Gestion des erreurs globales
+        window.addEventListener('error', function(e) {
+            console.error('Erreur globale:', e.error);
+            console.log('Une erreur inattendue s\'est produite');
+        });
+
+        // Gestion des promesses rejetées
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Promise rejetée:', e.reason);
+            console.log('Erreur de connexion au serveur');
+        });
+
+        // Gestion de la fermeture de la page
+        window.addEventListener('beforeunload', function(e) {
+            if (currentDocumentId) {
+                // Sauvegarder automatiquement avant de quitter
+                saveDocument(false);
+            }
+        });
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 300px;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background-color: #34495e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .hamburger-menu {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: none;
+        }
+
+        .upload-section {
+            padding: 20px;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .upload-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .upload-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .documents-list {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+
+        .document-tab {
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            background-color: #34495e;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+
+        .document-tab:hover {
+            background-color: #4a5f7a;
+        }
+
+        .document-tab.active {
+            background-color: #3498db;
+            border-left-color: #2980b9;
+        }
+
+        .document-tab .doc-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .document-tab .doc-type {
+            font-size: 0.8rem;
+            color: #bdc3c7;
+            text-transform: uppercase;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+        }
+
+        .main-header {
+            text-align: center;
+            padding: 40px 20px;
+            background-color: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+        }
+
+        .main-header h1 {
+            font-size: 2rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .main-header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        /* Upload Area Styles */
+        .upload-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .upload-zone {
+            text-align: center;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 60px 40px;
+            background-color: #fafafa;
+            transition: all 0.3s;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .upload-zone:hover {
+            border-color: #3498db;
+            background-color: #f8f9fa;
+        }
+
+        .upload-zone i {
+            font-size: 3rem;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+        }
+
+        .upload-zone p {
+            margin-bottom: 20px;
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        .select-file-btn {
+            padding: 12px 30px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .select-file-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .upload-zone small {
+            color: #95a5a6;
+            font-size: 0.9rem;
+        }
+
+        /* Editor Container Styles */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .editor-header h2 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-ai {
+            background-color: #0066cc;
+            color: white;
+        }
+
+        .btn-ai:hover {
+            background-color: #0052a3;
+        }
+
+        .btn-delete {
+            background-color: #a10404;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background-color: #870606;
+        }
+
+
+        #documentEditor {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            background-color: #fafafa;
+        }
+
+        #documentEditor:focus {
+            border-color: #3498db;
+            background-color: white;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-overlay p {
+            color: white;
+            font-size: 1.1rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                height: 100%;
+                z-index: 999;
+                transform: translateX(-100%);
+                width: 280px;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .hamburger-menu {
+                display: block;
+            }
+
+            .main-content {
+                width: 100%;
+            }
+
+            .main-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .editor-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+
+            .editor-actions {
+                justify-content: center;
+            }
+
+            .btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .upload-zone {
+                padding: 40px 20px;
+            }
+
+            .upload-zone i {
+                font-size: 2rem;
+            }
+
+            .main-header {
+                padding: 20px;
+            }
+
+            .editor-container {
+                padding: 15px;
+            }
+        }
+/* ======================================================= */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logout-btn:hover {
+            background-color: #e74c3c;
+            transform: scale(1.1);
+        }
+
+        .logout-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Animation pour l'icône */
+        .logout-btn i {
+            transition: transform 0.3s ease;
+        }
+
+        .logout-btn:hover i {
+            transform: rotate(-10deg);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .header-actions {
+                gap: 8px;
+            }
+            
+            .logout-btn {
+                font-size: 1rem;
+                padding: 6px;
+            }
+        }
+    </style>
+</body>
+</html>
