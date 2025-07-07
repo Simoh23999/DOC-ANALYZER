@@ -80,7 +80,15 @@ def login_required(f):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Routes d'authentification
+
+@app.route('/')
+def index():
+    if 'user_id' not in session:
+        return render_template('index.html')
+    return render_template('upload.html')
+
+
+# ============================ signup and login ===============================
 @app.route('/signup', methods=['GET', 'POST'])
 def register():
     try:
@@ -120,12 +128,6 @@ def register():
         session['email'] = email
         return render_template('upload.html', message='Inscription réussie', user_email=email)
 
-        # return jsonify({
-        #     'message': 'Inscription réussie',
-        #     'user': {
-        #         'email': email
-        #     }
-        # }), 201
         
     except sqlite3.Error as e:
         return jsonify({'error': f'Erreur de base de données: {str(e)}'}), 500
@@ -166,9 +168,6 @@ def login():
             return render_template('connexion.html', error='Email ou mot de passe incorrect')
         return render_template('upload.html', message='Connexion réussie')
 
-
-        # return render_template('index.html', message='Connexion réussie', user_email=user_email)
-        
     except sqlite3.Error as e:
         print("Database error:", str(e))
         return render_template('connexion.html', error=f'Erreur de base de données: {str(e)}')
@@ -181,12 +180,9 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/')
-def index():
-    if 'user_id' not in session:
-        # return render_template(url_for('index.html'))
-        return render_template('index.html')
-    return render_template('upload.html')
+
+
+# ============================ Document Upload and Management ===============================
 
 @app.route('/upload', methods=['POST'])
 @login_required
@@ -223,24 +219,8 @@ def upload_file():
         # Obtenir la taille du fichier
         file_size = os.path.getsize(file_path)
         
-        # Extraire le texte selon le type de fichier
         
-            # if file_extension == 'pdf':
-            #     extracted_text = extract_text_from_pdf(file_path)
-            # elif file_extension == 'docx':
-            #     extracted_text = extract_text_from_docx(file_path)
-            # elif file_extension == 'doc':
-            #     extracted_text = extract_text_from_doc(file_path)
-            # else:
-            #     return jsonify({'error': 'Type de fichier non supporté'}), 400            
         extracted_text, status_message = extract_text_from_pdf(file_path)
-          
-
-        # except Exception as e:
-        #     # Supprimer le fichier en cas d'erreur d'extraction
-        #     if os.path.exists(file_path):
-        #         os.remove(file_path)
-        #     return jsonify({'error': f'Erreur lors de l\'extraction du texte: {str(e)}'}), 500
         
         # Enregistrer dans la base de données
         conn = get_db()
@@ -428,6 +408,10 @@ def delete_document(doc_id):
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la suppression: {str(e)}'}), 500
 
+
+
+
+# ==================================== AI Chat Interface =====================================
 # @app.route('/ai-chat/<doc_id>')
 @app.route('/ai-chat', methods=['GET'])
 @login_required
@@ -456,14 +440,6 @@ def ai_chat():
                              document_filename=document['original_filename'],
                              document_content=document['extracted_text'],
                              document_type=document['file_type'])        
-        # return jsonify({
-        #     'redirect_to_ai': True,
-        #     'document_id': document['id'],
-        #     'document_content': document['extracted_text'],
-        #     'document_filename': document['original_filename'],
-        #     'document_type': document['file_type']
-        # })
-        
     except Exception as e:
         return jsonify({'error': f'Erreur lors de l\'accès à l\'interface IA: {str(e)}'}), 500
 

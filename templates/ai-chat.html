@@ -236,17 +236,6 @@
             color: white;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-                padding: 20px;
-                gap: 20px;
-            }
-
-            .answer-section {
-                margin: 0 20px 20px;
-            }
-        }
 
         .header-top {
             display: flex;
@@ -255,19 +244,6 @@
             margin-bottom: 20px;
         }
 
-        /* .header-top .document-name {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.2);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 0.9em;
-    max-width: 40%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-} */
 
         .back-btn {
             background: rgba(255, 255, 255, 0.2);
@@ -300,18 +276,6 @@
             border-color: rgba(255, 255, 255, 0.8);
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .header-top {
-                flex-direction: column;
-                gap: 10px;
-                align-items: stretch;
-            }
-            
-            .back-btn, .logout-btn {
-                text-align: center;
-            }
-        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -322,20 +286,16 @@
             <div class="header-top">
                 <a href="/" class="back-btn">← Retour aux documents</a>
                 <div class="document-name">📄 {{ document_filename }}</div>
-                <button class="logout-btn" onclick="logout()">Déconnexion</button>
-            </div>
-            <!-- <h1> Analyse de Document</h1> -->
+                <a href="/logout" class="logout-btn" style="text-decoration: none;">Déconnexion</a>
+            </div>            
             <h1> Toujours pret à répondre</h1>
             <h2> Liste des questions</h2>
-            <!-- <div class="document-name">📄 {{ document_filename }}</div> -->
-            <!-- <a href="/" class="back-btn">← Analyser un autre document</a> -->
-            <!-- <a href="/" class="back-btn">← Retour au documents</a> -->
         </div>
 
         <div class="main-content">
             <div class="question-section">
                 <div class="section-title">
-                    <!-- <span>❓</span>--> Posez votre question
+                    Posez votre question
                 </div>
                 
                 <textarea 
@@ -378,7 +338,7 @@
 
         <div id="answer-section" class="answer-section">
             <div class="section-title">
-                <!-- <span>💡</span> -->Réponse
+                Réponse
             </div>
             
             <div class="loading" id="loading">
@@ -409,7 +369,6 @@
         const docId = documentId || window.location.pathname.split('/').pop();
 
         function setQuestion(element) {
-            // document.getElementById('question-input').value = element.textContent;
             document.getElementById('question-input').value = element.innerHTML.trim();            
         }
 

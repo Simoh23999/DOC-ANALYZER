@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionnaire de Documents</title>
-    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -13,9 +12,9 @@
         <nav class="sidebar">
             <div class="sidebar-header">
                 <h3><i class="fas fa-file-alt"></i> Documents</h3>
-                <!-- <button class="hamburger-menu" onclick="toggleSidebar()">
+                <button class="hamburger-menu" onclick="toggleSidebar()">
                     <i class="fas fa-bars"></i>
-                </button> -->
+                </button>
                 <div class="header-actions">
                     <a href="/logout" class="logout-btn" style="text-decoration: none;" title="Se déconnecter">
                         <i class="fas fa-sign-out-alt"></i>
@@ -324,17 +323,11 @@
                 
                 // Remplir l'éditeur avec gestion des valeurs nulles
                 const titleElement = document.getElementById('currentDocTitle');
-                // const editorElement = document.getElementById('documentEditor');
                 
                 if (titleElement) {
                     titleElement.textContent = data.filename || 'Document sans nom';
                 }
-                
-                // if (editorElement) {
-                //     editorElement.value = data.content || '';
-                // }
-                
-                // Mettre à jour les onglets actifs
+
                 updateActiveTab(docId);
                 
                 console.log('Document ouvert avec succès');
@@ -377,12 +370,6 @@
             }
 
             const editorElement = document.getElementById('documentEditor');
-            // if (!editorElement) {
-            //     if (showNotification) console.log('Éditeur non trouvé');
-            //     return;
-            // }
-
-            // const content = editorElement.value || '';
             
             fetch(`/document/${currentDocumentId}/save`, {
                 method: 'POST',
@@ -418,53 +405,6 @@
             }
             window.location.href = `/ai-chat?doc=${currentDocumentId}`;
 
-            // Sauvegarder d'abord le document avant d'aller vers l'IA
-            // const content = document.getElementById('documentEditor').value;
-            
-            // fetch(`/document/${currentDocumentId}/save`, {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //     },
-            //     body: JSON.stringify({ content: content })
-            // })
-            // .then(response => response.json())
-            // .then(data => {
-                // if (data.success) {
-                    // Maintenant rediriger vers l'interface IA
-                    // fetch(`/ai-interface/${currentDocumentId}`)
-                    // .then(response => response.json())
-                    // .then(aiData => {
-                    //     if (aiData.redirect_to_ai) {
-                            // Ici vous pouvez implémenter la redirection vers votre interface IA
-                            // Exemple: window.location.href = `/ai-chat?doc=${currentDocumentId}`;
-                            // window.location.href = `/ai-chat?doc=${currentDocumentId}`;
-                            // Ou ouvrir dans un nouvel onglet:
-                            // window.open(`/ai-chat?doc=${currentDocumentId}`, '_blank');
-                            
-                            // Pour le moment, afficher une alerte avec les informations
-                            // alert(`Redirection vers l'interface IA pour le document: ${aiData.document_filename}\nDocument ID: ${aiData.document_id}`);
-                            
-                            // Vous pouvez aussi stocker les données dans localStorage pour l'interface IA
-                    //         localStorage.setItem('aiDocumentData', JSON.stringify({
-                    //             id: aiData.document_id,
-                    //             filename: aiData.document_filename,
-                    //             content: aiData.document_content
-                    //         }));
-                            
-                    //         console.log('Redirection vers l\'interface IA...');
-                    //     }
-                    // })
-                    // .catch(error => {
-                    //     console.error('Erreur:', error);
-                    //     console.log('Erreur lors de l\'accès à l\'interface IA');
-                    // });
-                // }
-            // })
-            // .catch(error => {
-            //     console.error('Erreur:', error);
-            //     console.log('Erreur lors de la sauvegarde avant IA');
-            // });
         }
 
         function deleteDocument(documentId) {
@@ -499,13 +439,9 @@
                 if (data.success) {
                     console.log('Document supprimé avec succès');
                     
-                    
-                    // Si le document supprimé était le document actuel, réinitialiser l'interface
-                    if (docId === currentDocumentId) {
+                                        if (docId === currentDocumentId) {
                         currentDocumentId = null;
-                        // Réinitialiser l'interface ou rediriger vers la page d'accueil
-                        // window.location.href = '/';
-                                        // Masquer l'éditeur et afficher la zone d'upload
+                      
                         const uploadArea = document.getElementById('uploadArea');
                         const editorContainer = document.getElementById('editorContainer');
                         
@@ -547,23 +483,6 @@
             loadDocuments();
         }
 
-        // Gestion de la sidebar mobile
-        function toggleSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            sidebar.classList.toggle('open');
-        }
-
-        // Fermer la sidebar si on clique en dehors (mobile)
-        document.addEventListener('click', function(e) {
-            const sidebar = document.querySelector('.sidebar');
-            const hamburger = document.querySelector('.hamburger-menu');
-            
-            if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
-                if (!sidebar.contains(e.target) && !hamburger.contains(e.target)) {
-                    sidebar.classList.remove('open');
-                }
-            }
-        });
 
         // Gestion du redimensionnement de la fenêtre
         window.addEventListener('resize', function() {
@@ -916,67 +835,6 @@
             font-size: 1.1rem;
         }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .sidebar {
-                position: fixed;
-                left: 0;
-                top: 0;
-                height: 100%;
-                z-index: 999;
-                transform: translateX(-100%);
-                width: 280px;
-            }
-
-            .sidebar.open {
-                transform: translateX(0);
-            }
-
-            .hamburger-menu {
-                display: block;
-            }
-
-            .main-content {
-                width: 100%;
-            }
-
-            .main-header h1 {
-                font-size: 1.5rem;
-            }
-
-            .editor-header {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 15px;
-            }
-
-            .editor-actions {
-                justify-content: center;
-            }
-
-            .btn {
-                flex: 1;
-                justify-content: center;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .upload-zone {
-                padding: 40px 20px;
-            }
-
-            .upload-zone i {
-                font-size: 2rem;
-            }
-
-            .main-header {
-                padding: 20px;
-            }
-
-            .editor-container {
-                padding: 15px;
-            }
-        }
 /* ======================================================= */
         .header-actions {
             display: flex;
@@ -1016,17 +874,6 @@
             transform: rotate(-10deg);
         }
 
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .header-actions {
-                gap: 8px;
-            }
-            
-            .logout-btn {
-                font-size: 1rem;
-                padding: 6px;
-            }
-        }
     </style>
 </body>
 </html>
