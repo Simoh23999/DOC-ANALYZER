@@ -18,11 +18,11 @@ from analyzer import PDFAnalyzer, extract_text_from_pdf
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-this-in-production'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-this-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['DATABASE'] = 'documents.db'
-DATABASE = 'documents.db'
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
+app.config['DATABASE'] = os.environ.get('DATABASE', 'documents.db')
+DATABASE = app.config['DATABASE']
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx'}
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -518,5 +518,6 @@ def user_profile():
         return jsonify({'error': f'Erreur lors de la récupération du profil: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_DEBUG', '1') == '1'
+    app.run(host='0.0.0.0', port=port, debug=debug)

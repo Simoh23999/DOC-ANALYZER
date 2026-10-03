@@ -6,3 +6,4 @@ pytesseract
 python-docx
 mammoth
 PyPDF2
+gunicorn
