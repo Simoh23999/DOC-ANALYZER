@@ -1,40 +1,41 @@
-import requests
-import os
-import fitz
-from pathlib import Path
-from typing import List, Optional
 import io
-from PIL import Image
-import pytesseract
+import os
+from pathlib import Path
 
+import fitz
+import pytesseract
+import requests
+from PIL import Image
 
 
 class PDFAnalyzer:
     """Classe pour l'analyse de documents PDF avec OCR et IA"""
-    
-    def __init__(self, api_endpoint: str = "https://api.groq.com/openai/v1/chat/completions"):
+
+    def __init__(
+        self, api_endpoint: str = "https://api.groq.com/openai/v1/chat/completions"
+    ):
         self.api_endpoint = api_endpoint
         self.api_key = self._get_api_key()
-    
-    def _get_api_key(self) -> Optional[str]:
+
+    def _get_api_key(self) -> str | None:
         """Récupère la clé API depuis les variables d'environnement ou fichier .env"""
-        api_key = os.getenv('GROQ_API_KEY')
-        
+        api_key = os.getenv("GROQ_API_KEY")
+
         if not api_key:
-            env_file = Path('.env')
+            env_file = Path(".env")
             if env_file.exists():
                 try:
-                    with open(env_file, 'r', encoding='utf-8') as f:
+                    with open(env_file, "r", encoding="utf-8") as f:
                         for line in f:
-                            if line.startswith('GROQ_API_KEY='):
-                                api_key = line.split('=', 1)[1].strip()
+                            if line.startswith("GROQ_API_KEY="):
+                                api_key = line.split("=", 1)[1].strip()
                                 break
                 except Exception:
                     pass
-        
+
         return api_key
-    
-    def pdf_to_images(self, pdf_path: str, dpi: int = 200) -> List[Image.Image]:
+
+    def pdf_to_images(self, pdf_path: str, dpi: int = 200) -> list[Image.Image]:
         """Convertit un PDF en images"""
         images = []
         try:
@@ -43,40 +44,44 @@ class PDFAnalyzer:
 
             for page_num in range(doc.page_count):
                 page = doc[page_num]
-                mat = fitz.Matrix(dpi/72, dpi/72)
+                mat = fitz.Matrix(dpi / 72, dpi / 72)
                 pix = page.get_pixmap(matrix=mat)
                 img_data = pix.tobytes("png")
                 img = Image.open(io.BytesIO(img_data))
                 images.append(img)
-            
+
             doc.close()
             return images
-            
+
         except Exception as e:
             print(f"Erreur conversion PDF: {e}")
             return []
-    
-    def extract_text_from_images(self, images: List[Image.Image], lang: str = 'fra') -> str:
+
+    def extract_text_from_images(
+        self, images: list[Image.Image], lang: str = "fra"
+    ) -> str:
         """Extrait le texte des images avec OCR"""
         full_text = ""
-        custom_config = r'--oem 3 --psm 6'
+        custom_config = r"--oem 3 --psm 6"
 
         try:
             for i, img in enumerate(images):
                 # Préprocessing de l'image
-                if img.mode != 'L':
-                    img = img.convert('L')
-                
+                if img.mode != "L":
+                    img = img.convert("L")
+
                 # Redimensionner si nécessaire
                 width, height = img.size
                 if width < 1000 or height < 1000:
-                    scale = max(1000/width, 1000/height)
+                    scale = max(1000 / width, 1000 / height)
                     new_size = (int(width * scale), int(height * scale))
                     img = img.resize(new_size, Image.Resampling.LANCZOS)
-                
+
                 # Extraction OCR
                 try:
-                    text = pytesseract.image_to_string(img, lang=lang, config=custom_config)
+                    text = pytesseract.image_to_string(
+                        img, lang=lang, config=custom_config
+                    )
                     full_text += f"\n--- PAGE {i + 1} ---\n{text}\n"
                 except Exception:
                     # Fallback sans spécifier la langue
@@ -87,21 +92,21 @@ class PDFAnalyzer:
                         full_text += f"\n--- PAGE {i + 1} ---\n[Erreur OCR]\n"
 
             return full_text
-            
+
         except Exception as e:
             print(f"Erreur OCR: {e}")
             return ""
-    
+
     def query_ai_model(self, text: str, question: str) -> str:
         """Interroge le modèle IA avec le texte et la question"""
         if not self.api_key:
             return "Clé API manquante. Configurez GROQ_API_KEY"
-        
+
         # Limiter la taille du texte
         max_chars = 8000
         if len(text) > max_chars:
             text = text[:max_chars] + "\n... [texte tronqué]"
-        
+
         prompt = f"""Tu es un assistant spécialisé dans l'évaluation de la forme et de la structure des rapports universitaires français.
 
 DOCUMENT À ANALYSER:
@@ -278,35 +283,31 @@ RAPPEL CRITIQUE : Une question = Une reformulation + Une analyse complète + Une
 """
 
         headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json'
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
         }
-        
+
         data = {
             # "model": "llama3-70b-8192",
             "model": "llama-3.3-70b-versatile",
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.3,
-            "max_tokens": 2000
+            "max_tokens": 2000,
         }
-        
+
         try:
             response = requests.post(
-                self.api_endpoint,
-                headers=headers,
-                json=data,
-                timeout=30
+                self.api_endpoint, headers=headers, json=data, timeout=30
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
-                return result['choices'][0]['message']['content']
+                return result["choices"][0]["message"]["content"]
             else:
                 return f"Erreur API: {response.status_code} - {response.text}"
-                
+
         except Exception as e:
             return f"Erreur lors de la requête: {e}"
-
 
 
 def extract_text_from_pdf(file_path: str) -> tuple[str, str]:
@@ -318,27 +319,27 @@ def extract_text_from_pdf(file_path: str) -> tuple[str, str]:
         # Vérifier que le fichier existe
         if not os.path.exists(file_path):
             return "", "Fichier non trouvé"
-        
+
         # Conversion PDF en images
         analyzer = PDFAnalyzer()
         images = analyzer.pdf_to_images(file_path)
         if not images:
             return "", "Impossible de convertir le PDF en images"
-        
+
         # Extraction OCR
         text = analyzer.extract_text_from_images(images)
         if not text.strip():
             return "", "Aucun texte extrait du document"
-        
+
         # Sauvegarder le texte extrait (optionnel)
-        text_file = Path(file_path).with_suffix('.txt')
+        text_file = Path(file_path).with_suffix(".txt")
         try:
-            with open(text_file, 'w', encoding='utf-8') as f:
+            with open(text_file, "w", encoding="utf-8") as f:
                 f.write(text)
         except Exception:
             pass  # Ignorer si on ne peut pas sauvegarder
-        
+
         return text, "Texte extrait avec succès"
-        
+
     except Exception as e:
-        return "", f"Erreur lors de l'extraction: {str(e)}"
+        return "", f"Erreur lors de l'extraction: {e!s}"
