@@ -44,7 +44,7 @@ jobs:
 
       - name: Prettier check
         if: github.ref != 'refs/heads/main' || github.event_name == 'pull_request'
-        run: npx --yes prettier --check "templates/**/*.html" "**/*.yml" "**/*.yaml"
+        run: npx --yes prettier --check "templates/**/*.html"
 
 
       - name: Ruff fix
@@ -57,13 +57,14 @@ jobs:
 
       - name: Prettier fix
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: npx --yes prettier --write "templates/**/*.html" "**/*.yml" "**/*.yaml" || true
+        run: npx --yes prettier --write "templates/**/*.html" || true
 
       - name: Commit auto-fixes
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "style: auto-fix lint/format [skip ci]"
+          file_pattern: "app.py analyzer.py templates/ requirements.txt"
 
   docker:
     name: Build and push to GHCR
