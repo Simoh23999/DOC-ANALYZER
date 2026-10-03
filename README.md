@@ -1,47 +1,45 @@
-### 2\. Installation de Tesseract OCR
+# DOC-ANALYZER - Analyse de documents universitaires (Flask + OCR + IA)
 
-1.  Go to : https://github.com/UB-Mannheim/tesseract/wiki
-2.  click la version 64-bit : `tesseract-ocr-w64-setup-5.5.0.20241111.exe`
-   <img width="631" alt="image" src="https://github.com/user-attachments/assets/d047d1fd-878b-492e-a672-cfbba35a4814" />
+Application Flask de dépôt, extraction OCR et question-réponse sur documents PDF/DOC/DOCX.
 
+## 1. Prérequis
 
-4.  Exécutez l'installateur avec les options par défaut
-5.  **Important** : Notez le chemin d'installation (`C:\Program Files\Tesseract-OCR`)
+- Docker (ou Podman) pour la méthode recommandée, **ou** Python 3.11 + Tesseract en local.
+- Une clé API Groq : https://console.groq.com/
 
-### 3\. Configuration de Tesseract
+## 2. Configuration (`.env`)
 
-Ajoutez Tesseract au PATH système :
-
-1.  ouvrir  "Variables d'environnement"
-2.  Dans "Variables système", sélectionnez "Path" et cliquez "Modifier"
-3.  Ajoutez : `C:\Program Files\Tesseract-OCR`
-4.  Cliquez "OK" pour fermer toutes les fenêtres
-
-### 4\. Installation des bibliothèques Python
-
-Ouvre le cmd  et exécute :
-
-```cmd
-pip install -r requirements.txt
+```powershell
+copy .env.example .env
 ```
 
-### 5\. Téléchargement des données linguistiques
-
-Téléchargez le pack français pour Tesseract :
-
-```cmd
-# téléchargez manuellement depuis ce lien:
-# https://github.com/tesseract-ocr/tessdata/raw/main/fra.traineddata
-# Et placez le fichier dans : C:\Program Files\Tesseract-OCR\tessdata\
+```
+SECRET_KEY=...        # obligatoire en prod : python -c "import secrets; print(secrets.token_hex(32))"
+GROQ_API_KEY=...     
+PORT=5000
+FLASK_DEBUG=0         # 1 en dev local, 0 en prod/Docker
+DATABASE=documents.db # /data/documents.db sous Docker
+UPLOAD_FOLDER=uploads # /data/uploads sous Docker
 ```
 
-## 🔑 Configuration de l'API Groq
-1. creer compte sur https://console.groq.com/
-2. genere ton API KEY
-### Dans Fichier .env 
+## 3. Lancement avec Docker (recommandé)
 
-Créez le fichier `.env` dans le même dossier principale:
+L'image contient déjà Python, les dépendances, Tesseract + données français (`tesseract-ocr`, `tesseract-ocr-fra`) et Gunicorn. Aucune installation locale de Tesseract n'est nécessaire.
 
+### 3.1 Depuis l'image publiée (GHCR)
+
+```powershell
+$ docker pull ghcr.io/simoh23999/doc-analyzer:latest
+$ docker run -p 5000:5000 -e SECRET_KEY=votre-secret -e GROQ_API_KEY=votre-cle -v doc-data:/data ghcr.io/simoh23999/doc-analyzer:latest
 ```
-GROQ_API_KEY=votre_clé_api_groq
+
+### 3.2 Avec docker compose
+
+```powershell
+docker compose up --build
 ```
+
+Le service `web` utilise `.env`, expose `5000:5000` et persiste la base SQLite + les uploads dans le volume `doc-data:/data`. Puis ouvrir http://localhost:5000/login.
+
+
+
