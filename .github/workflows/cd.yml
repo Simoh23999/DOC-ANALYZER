@@ -1,0 +1,63 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image tag to deploy (e.g. v1.2.3, v1.2, latest)"
+        required: true
+        default: "latest"
+      action:
+        description: "deploy = pull+recreate, rollback = redeploy previous tag, restart = no pull, status = read-only check"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - rollback
+          - restart
+          - status
+
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Trigger deploy on local Windows machine
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+
+    steps:
+      - name: Resolve version and action
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            ACTION="${{ inputs.action }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            ACTION="deploy"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "action=$ACTION" >> "$GITHUB_OUTPUT"
+          echo "Triggering remote deploy: version=$VERSION action=$ACTION"
+
+      - name: Invoke local deploy script over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          timeout: 60s
+          command_timeout: 10m
+          script_stop: true
+          script: |
+            powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ~/doc-analyzer/deploy.ps1 -Version "${{ steps.vars.outputs.version }}" -Action "${{ steps.vars.outputs.action }}"
